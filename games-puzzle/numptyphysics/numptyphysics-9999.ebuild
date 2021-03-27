@@ -1,13 +1,12 @@
-# Copyright 1999-2021 Gentoo Authors
+# Copyright 1999-2018 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
-
-inherit flag-o-matic git-r3 gnome2-utils toolchain-funcs
+EAPI=6
+inherit eutils gnome2-utils flag-o-matic git-r3
 
 DESCRIPTION="Crayon Physics-like drawing puzzle game using the same excellent Box2D engine"
-HOMEPAGE="https://thp.io/2015/numptyphysics/"
-EGIT_REPO_URI="https://github.com/thp/numptyphysics"
+HOMEPAGE="http://thp.io/2015/numptyphysics/"
+
 # This is only the SRC_URI for the user levels. The code is in git repo.
 SRC_URI="user-levels? (
 	http://numptyphysics.garage.maemo.org/levels/butelo/butelo.npz
@@ -33,27 +32,35 @@ SRC_URI="user-levels? (
 	http://numptyphysics.garage.maemo.org/levels/zeez/zeez.npz
 )"
 
+EGIT_REPO_URI="https://github.com/thp/numptyphysics"
+
 LICENSE="GPL-3"
 SLOT="0"
+KEYWORDS=""
 IUSE="+user-levels"
 
-RDEPEND="
-	dev-libs/glib:2
-	media-libs/libsdl2[opengl,video]
+RDEPEND="media-libs/libsdl2[opengl,video]
 	media-libs/sdl2-image[png]
 	media-libs/sdl2-ttf
 	virtual/opengl
-"
-DEPEND="${DEPEND}"
-BDEPEND="virtual/pkgconfig"
+	dev-libs/glib:2"
+DEPEND="${DEPEND}
+	virtual/pkgconfig"
 
-PATCHES=(
-	"${FILESDIR}"/${PN}-0.3.5-gentoo.patch
-)
+src_unpack() {
+	git-r3_src_unpack
+}
 
-src_compile() {
-	tc-export CC CXX
-	emake
+src_prepare() {
+	append-cxxflags -std=c++11 -Isrc
+	sed -i '/-g -O2/d' external/Box2D/Source/Makefile \
+		external/glaserl/makefile || die
+	sed -i "/return thp::/s% thp::.*$%\"/usr/share/${PN}/data\";%" \
+		src/Os.cpp || die
+	sed -e '/CXXFLAGS +=/s/\(CXXFLAGS +=\).*\( -DAPP=.*\)/\1\2/' \
+		-e '/SILENTCMD/s/$(LIBS)$/$(LDFLAGS) $(LIBS)/' \
+		-i makefile || die
+	eapply_user
 }
 
 pkg_preinst() {

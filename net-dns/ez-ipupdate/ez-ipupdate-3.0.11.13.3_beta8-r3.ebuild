@@ -1,22 +1,27 @@
-# Copyright 1999-2021 Gentoo Authors
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI="5"
+inherit eutils readme.gentoo systemd user versionator
 
-MY_BETA="$(ver_cut 6-)"
-MY_PATCH="$(ver_cut 4-5)"
-MY_PV="$(ver_cut 1-3)${MY_BETA/beta/b}"
-inherit readme.gentoo-r1 systemd user
+MY_BETA="$(get_version_component_range 6)"
+MY_PATCH="$(get_version_component_range 4-5)"
+MY_PV="$(get_version_component_range 1-3)${MY_BETA/beta/b}"
 
 DESCRIPTION="Dynamic DNS client for lots of dynamic dns services"
 HOMEPAGE="https://wiki.gentoo.org/wiki/No_homepage"
 SRC_URI="mirror://debian/pool/main/e/ez-ipupdate/${PN}_${MY_PV}.orig.tar.gz
 	mirror://debian/pool/main/e/ez-ipupdate/${PN}_${MY_PV}-${MY_PATCH}.diff.gz"
-S="${WORKDIR}/${PN}-${MY_PV}"
 
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="~amd64 ~ppc ~sparc ~x86"
+IUSE=""
+
+DEPEND=""
+RDEPEND=""
+
+S="${WORKDIR}/${PN}-${MY_PV}"
 
 DISABLE_AUTOFORMATTING="yes"
 DOC_CONTENTS="
@@ -39,34 +44,35 @@ init-script with the 'update' parameter inside
 your PPP ip-up script.
 "
 
-PATCHES=(
-	# adding members.3322.org support
-	"${FILESDIR}/${P}-3322.diff"
-	# adding www.dnsexit.com support
-	"${FILESDIR}/${P}-dnsexit.diff"
-	# make ez-ipupdate work with iproute2/dhcpcd under linux (bug #318905)
-	"${FILESDIR}/${P}-linux.diff"
-	# allows to set IPv6 via -a option, (bug #432764)
-	"${FILESDIR}/${P}-ipv6.diff"
-	# repair format mask issues
-	"${FILESDIR}/${P}-fix-format-mask.patch"
-)
-
 src_prepare() {
-	# Debian patches
-	eapply "${WORKDIR}/${PN}_${MY_PV}-${MY_PATCH}.diff"
-	# repair/apply additional Debian patches
-	sed -i -e "s|^\(---\s*\)\.\./|\1|g" debian/patches/*.diff || die
-	eapply debian/patches
+	# apply debian patches
+	epatch "${WORKDIR}/${PN}_${MY_PV}-${MY_PATCH}.diff"
 
-	default
+	# repair/apply additional debian patches
+	sed -i -e "s|^\(---\s*\)\.\./|\1|g" debian/patches/*.diff
+	EPATCH_SOURCE="${S}/debian/patches" EPATCH_SUFFIX="diff" EPATCH_FORCE="yes" epatch
+
+	# adding members.3322.org support
+	epatch "${FILESDIR}/${P}-3322.diff"
+
+	# adding www.dnsexit.com support
+	epatch "${FILESDIR}/${P}-dnsexit.diff"
+
+	# make ez-ipupdate work with iproute2/dhcpcd under linux (bug #318905)
+	epatch "${FILESDIR}/${P}-linux.diff"
+
+	# allows to set IPv6 via -a option, (bug #432764)
+	epatch "${FILESDIR}/${P}-ipv6.diff"
+
+	# repair format mask issues
+	sed -i -e "s|\(\s*\)\(strlen(putbuf)\)|\1(int)\2|g" ez-ipupdate.c || die
 
 	# comment out obsolete options
 	sed -i -e "s:^\(run-as-user.*\):#\1:g" \
 		-e "s:^\(cache-file.*\):#\1:g" ex*conf || die
 
 	# make 'missing' executable (bug #103480)
-	chmod +x missing || die
+	chmod +x missing
 }
 
 src_configure() {
@@ -99,17 +105,17 @@ pkg_preinst() {
 }
 
 pkg_postinst() {
-	chmod 750 /etc/ez-ipupdate /var/cache/ez-ipupdate || die
-	chown ez-ipupd:ez-ipupd /etc/ez-ipupdate /var/cache/ez-ipupdate || die
+	chmod 750 /etc/ez-ipupdate /var/cache/ez-ipupdate
+	chown ez-ipupd:ez-ipupd /etc/ez-ipupdate /var/cache/ez-ipupdate
 
 	readme.gentoo_print_elog
 
-	if [[ -f /etc/ez-ipupdate.conf ]]; then
+	if [ -f /etc/ez-ipupdate.conf ]; then
 		elog "The ez-ipupdate init-script can now handle more"
 		elog "than one config file. New config file location is"
 		elog "/etc/ez-ipupdate/*.conf"
-		if [[ ! -f /etc/ez-ipupdate/default.conf ]]; then
-			mv -f /etc/ez-ipupdate.conf /etc/ez-ipupdate/default.conf || die
+		if [ ! -f /etc/ez-ipupdate/default.conf ]; then
+			mv -f /etc/ez-ipupdate.conf /etc/ez-ipupdate/default.conf
 			elog "Your old configuration has been moved to"
 			elog "/etc/ez-ipupdate/default.conf"
 		fi
